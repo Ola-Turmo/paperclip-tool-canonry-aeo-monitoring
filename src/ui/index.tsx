@@ -60,6 +60,24 @@ export function BenchmarkWidget(_props: PluginWidgetProps) {
     return <div>Loading benchmark data...</div>;
   }
 
+  if (queryCount === 0) {
+    return (
+      <div style={{ display: "grid", gap: "0.5rem" }}>
+        <strong>Canonry Benchmark</strong>
+        <div style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "#64748b" }}>
+          Needs queries
+        </div>
+        <div style={{ fontSize: "0.875rem" }}>
+          <div>Status: {healthData?.status ?? "unknown"}</div>
+          <div>Recent Runs: {healthData?.recentRuns ?? 0}</div>
+        </div>
+        <div style={{ fontSize: "0.75rem" }}>
+          Add real benchmark queries before turning Canonry into an active dashboard workflow.
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: "grid", gap: "0.75rem" }}>
       <strong>Canonry Benchmark</strong>
