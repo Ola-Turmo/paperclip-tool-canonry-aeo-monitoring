@@ -1,8 +1,8 @@
 /**
  * Canonry AEO Monitoring - Benchmark Engine
- * 
+ *
  * Handles benchmark execution, evidence capture, and regression detection.
- * Uses mocks when real engine access is unavailable.
+ * This plugin must never fabricate benchmark queries or evidence.
  */
 
 import { randomUUID } from "crypto";
@@ -26,103 +26,8 @@ import type {
 } from "./types.js";
 import { evidenceStore } from "./evidence-store.js";
 
-// Default benchmark queries for demonstration
-const DEFAULT_BENCHMARK_QUERIES: BenchmarkQuery[] = [
-  {
-    id: "bq_001",
-    query: "What is UOS platform architecture?",
-    engines: ["google-search", "ai-overviews", "chatgpt", "perplexity"],
-    owner: "platform-team",
-    cadence: "weekly",
-    tags: ["architecture", "core"],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: "bq_002",
-    query: "How do I provision a new workspace?",
-    engines: ["google-search", "ai-overviews", "claude", "gemini"],
-    owner: "platform-team",
-    cadence: "weekly",
-    tags: ["provisioning", "getting-started"],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: "bq_003",
-    query: "What connector integrations are supported?",
-    engines: ["google-search", "chatgpt", "perplexity"],
-    owner: "connector-team",
-    cadence: "biweekly",
-    tags: ["connectors", "integrations"],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: "bq_004",
-    query: "How does the operations cockpit work?",
-    engines: ["google-search", "ai-overviews", "claude"],
-    owner: "ops-team",
-    cadence: "weekly",
-    tags: ["operations", "cockpit"],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: "bq_005",
-    query: "What is the department overlay model?",
-    engines: ["google-search", "ai-overviews", "perplexity", "gemini"],
-    owner: "platform-team",
-    cadence: "monthly",
-    tags: ["departments", "architecture"],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
-
-// Mock response generator for demonstration
-function generateMockEvidence(
-  query: BenchmarkQuery,
-  engine: AeoEngine
-): BenchmarkEvidence {
-  const timestamp = new Date().toISOString();
-  
-  // Simulate varying citation presence based on engine
-  const citationPresenceMap: Record<AeoEngine, CitationPresence> = {
-    "google-search": "present",
-    "ai-overviews": "partial",
-    "chatgpt": "present",
-    "claude": "present",
-    "perplexity": "present",
-    "gemini": "partial",
-    "site-search": "unknown",
-  };
-
-  // Simulate visibility scores with some variance
-  const baseScore = engine === "ai-overviews" ? 75 : engine === "site-search" ? 50 : 85;
-  const variance = Math.random() * 20 - 10; // -10 to +10
-  const visibilityScore = Math.max(0, Math.min(100, Math.round(baseScore + variance)));
-
-  return {
-    queryId: query.id,
-    engine,
-    capturedAt: timestamp,
-    responseText: `[Mock] Response for "${query.query}" on ${engine}`,
-    citationPresence: citationPresenceMap[engine],
-    citationSources: citationPresenceMap[engine] !== "absent" 
-      ? [`https://docs.example.com/${query.id}`] 
-      : undefined,
-    visibilityScore,
-    captureStatus: engine === "site-search" ? "unavailable" : "complete",
-    rawResponse: {
-      mock: true,
-      queryId: query.id,
-      engine,
-      timestamp,
-      responseLength: Math.floor(Math.random() * 500) + 200,
-    },
-  };
-}
+const CONFIGURATION_REQUIRED_MESSAGE =
+  "Canonry benchmark execution is not configured. Add real benchmark queries and a real engine capture path before running benchmarks.";
 
 // Detect regression between prior and current evidence
 function detectRegression(
@@ -241,89 +146,8 @@ function calculateSummary(run: BenchmarkRun): BenchmarkSummary {
 export async function executeBenchmark(
   options: BenchmarkOptions = {}
 ): Promise<BenchmarkExecutionResult> {
-  const startTime = Date.now();
-  const runId = randomUUID();
-  const timestamp = new Date().toISOString();
-
-  // Get queries to run
-  const queries = options.queryIds && options.queryIds.length > 0
-    ? DEFAULT_BENCHMARK_QUERIES.filter(q => options.queryIds!.includes(q.id))
-    : DEFAULT_BENCHMARK_QUERIES;
-
-  // Get engines to run
-  const engines: AeoEngine[] = options.engines && options.engines.length > 0
-    ? options.engines
-    : ["google-search", "ai-overviews", "chatgpt", "claude", "perplexity", "gemini"];
-
-  const results: QueryResult[] = [];
-  const incompleteCaptures: IncompleteCaptureRecord[] = [];
-
-  // Execute for each query and engine
-  for (const query of queries) {
-    for (const engine of engines) {
-      // Get prior evidence for comparison
-      const priorEvidence = await evidenceStore.getPriorRun(
-        query.id, 
-        engine, 
-        options.compareToRunId
-      ) ?? undefined;
-
-      // Capture current evidence (mock implementation)
-      const currentEvidence = generateMockEvidence(query, engine);
-
-      // Record incomplete captures for audit
-      if (currentEvidence.captureStatus !== "complete") {
-        incompleteCaptures.push({
-          queryId: query.id,
-          engine,
-          attemptedAt: timestamp,
-          reason: currentEvidence.captureStatus,
-          context: currentEvidence.captureNote || "Auto-detected during benchmark",
-        });
-      }
-
-      // Detect regression
-      const { status, details } = detectRegression(priorEvidence, currentEvidence);
-
-      results.push({
-        queryId: query.id,
-        query: query.query,
-        engine,
-        priorEvidence,
-        currentEvidence,
-        regressionStatus: status,
-        regressionDetails: details,
-      });
-    }
-  }
-
-  // Build run object
-  const run: BenchmarkRun = {
-    id: runId,
-    name: `Benchmark Run ${runId.slice(0, 8)}`,
-    description: `Automated benchmark ${options.compareToRunId ? "with comparison" : "initial"}`,
-    queryIds: queries.map(q => q.id),
-    executedAt: timestamp,
-    status: incompleteCaptures.length > results.length * 0.5 ? "partial" : "completed",
-    results,
-    summary: calculateSummary({ ...({} as BenchmarkRun), id: runId, name: "", queryIds: [], executedAt: timestamp, status: "completed", results, summary: {} as BenchmarkSummary }),
-  };
-
-  // Recalculate summary properly
-  run.summary = calculateSummary(run);
-
-  // Save the run
-  await evidenceStore.saveRun(run);
-
-  const executionMs = Date.now() - startTime;
-
-  return {
-    run,
-    options,
-    executedAt: timestamp,
-    executionMs,
-    incompleteCaptures,
-  };
+  void options;
+  throw new Error(CONFIGURATION_REQUIRED_MESSAGE);
 }
 
 // Get a specific benchmark run
@@ -451,5 +275,5 @@ export async function verifyRemediation(
 
 // Get benchmark queries
 export async function getBenchmarkQueries(): Promise<BenchmarkQuery[]> {
-  return DEFAULT_BENCHMARK_QUERIES;
+  return [];
 }
