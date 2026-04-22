@@ -14,6 +14,7 @@ Built as part of the UOS split workspace on top of [Paperclip](https://github.co
 ## Runtime Form
 
 - The Paperclip plugin scaffold is the primary delivery surface; evidence capture, monitoring logic, and operator workflows should strengthen that runtime rather than replace it.
+- The dashboard currently exposes only a compact health widget. The benchmark widget is intentionally hidden until real queries and evidence capture are configured, so paused companies do not carry dead benchmark surfaces.
 
 ## Highest-Value Workflows
 

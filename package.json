@@ -23,7 +23,7 @@
     "ui": "./dist/ui/",
     "manifest": "./dist/manifest.js"
   },
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": "turmo.dev",
   "name": "uos-tool-canonry-aeo-monitoring",
   "private": true,
